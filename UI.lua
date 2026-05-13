@@ -1,175 +1,143 @@
--- OceanUI (Modern Framework)
+-- OceanUI Premium
 
 local OceanUI = {}
 
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
-local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
 
 local LocalPlayer = Players.LocalPlayer
 
 ----------------------------------------------------
--- SETTINGS SAVE SYSTEM (Client Session Save)
+-- TRUE GLASS EFFECT
 ----------------------------------------------------
-local function SaveSetting(name, value)
-    LocalPlayer:SetAttribute(name, value)
-end
+local function CreateGlass(parent)
+    local Glass = Instance.new("Frame")
+    Glass.Size = UDim2.new(1,0,1,0)
+    Glass.BackgroundColor3 = Color3.fromRGB(255,255,255)
+    Glass.BackgroundTransparency = 0.92
+    Glass.Parent = parent
 
-local function LoadSetting(name)
-    return LocalPlayer:GetAttribute(name)
-end
+    local Corner = Instance.new("UICorner")
+    Corner.CornerRadius = UDim.new(0,18)
+    Corner.Parent = Glass
 
-----------------------------------------------------
--- ACYLIC BLUR
-----------------------------------------------------
-local function CreateBlur()
-    local blur = Instance.new("BlurEffect")
-    blur.Size = 20
-    blur.Parent = game:GetService("Lighting")
-    return blur
-end
+    local Stroke = Instance.new("UIStroke")
+    Stroke.Thickness = 1
+    Stroke.Color = Color3.fromRGB(255,255,255)
+    Stroke.Transparency = 0.7
+    Stroke.Parent = Glass
 
-----------------------------------------------------
--- MOVING WAVE BACKGROUND
-----------------------------------------------------
-local function CreateWave(parent)
-    local wave = Instance.new("Frame")
-    wave.Size = UDim2.new(2,0,2,0)
-    wave.Position = UDim2.new(-0.5,0,-0.5,0)
-    wave.BackgroundColor3 = Color3.fromRGB(0,170,255)
-    wave.BackgroundTransparency = 0.85
-    wave.Parent = parent
-
-    local gradient = Instance.new("UIGradient")
-    gradient.Rotation = 0
-    gradient.Color = ColorSequence.new{
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(0,120,255)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(0,200,255))
-    }
-    gradient.Parent = wave
-
-    RunService.RenderStepped:Connect(function()
-        gradient.Rotation += 0.3
-    end)
+    return Glass
 end
 
 ----------------------------------------------------
 -- WINDOW
 ----------------------------------------------------
 function OceanUI:CreateWindow(title)
-    local blur = CreateBlur()
 
     local ScreenGui = Instance.new("ScreenGui")
     ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
     local Main = Instance.new("Frame")
-    Main.Size = UDim2.new(0, 500, 0, 600)
-    Main.Position = UDim2.new(0.5,-250,0.5,-300)
+    Main.Size = UDim2.new(0, 650, 0, 450)
+    Main.Position = UDim2.new(0.5,-325,0.5,-225)
     Main.BackgroundColor3 = Color3.fromRGB(15,25,40)
     Main.Parent = ScreenGui
-    Instance.new("UICorner", Main)
 
-    CreateWave(Main)
+    Instance.new("UICorner", Main).CornerRadius = UDim.new(0,18)
 
-    -- Title
-    local Title = Instance.new("TextLabel")
-    Title.Size = UDim2.new(1,0,0,45)
-    Title.BackgroundTransparency = 1
-    Title.Text = title or "Ocean UI"
-    Title.Font = Enum.Font.GothamBold
-    Title.TextSize = 22
-    Title.TextColor3 = Color3.new(1,1,1)
-    Title.Parent = Main
+    CreateGlass(Main)
 
-    -- Search Bar
-    local Search = Instance.new("TextBox")
-    Search.Size = UDim2.new(1,-20,0,35)
-    Search.Position = UDim2.new(0,10,0,50)
-    Search.PlaceholderText = "Search..."
-    Search.Parent = Main
-    Instance.new("UICorner", Search)
+    -- Premium Shadow
+    local Shadow = Instance.new("ImageLabel")
+    Shadow.Size = UDim2.new(1,40,1,40)
+    Shadow.Position = UDim2.new(0,-20,0,-20)
+    Shadow.BackgroundTransparency = 1
+    Shadow.Image = "rbxassetid://6014261993"
+    Shadow.ImageTransparency = 0.4
+    Shadow.ZIndex = 0
+    Shadow.Parent = Main
 
-    -- Tab Container
-    local TabButtons = Instance.new("Frame")
-    TabButtons.Size = UDim2.new(1,0,0,40)
-    TabButtons.Position = UDim2.new(0,0,0,95)
-    TabButtons.BackgroundTransparency = 1
-    TabButtons.Parent = Main
+    -- Header
+    local Header = Instance.new("TextLabel")
+    Header.Size = UDim2.new(1,0,0,50)
+    Header.BackgroundTransparency = 1
+    Header.Text = title or "Ocean Premium"
+    Header.Font = Enum.Font.GothamBold
+    Header.TextSize = 20
+    Header.TextColor3 = Color3.new(1,1,1)
+    Header.Parent = Main
 
-    local TabContent = Instance.new("Frame")
-    TabContent.Size = UDim2.new(1,-20,1,-150)
-    TabContent.Position = UDim2.new(0,10,0,140)
-    TabContent.BackgroundTransparency = 1
-    TabContent.Parent = Main
+    -- Sidebar
+    local Sidebar = Instance.new("Frame")
+    Sidebar.Size = UDim2.new(0,150,1,-60)
+    Sidebar.Position = UDim2.new(0,10,0,55)
+    Sidebar.BackgroundTransparency = 1
+    Sidebar.Parent = Main
 
-    local Layout = Instance.new("UIListLayout", TabContent)
+    local TabArea = Instance.new("Frame")
+    TabArea.Size = UDim2.new(1,-180,1,-60)
+    TabArea.Position = UDim2.new(0,170,0,55)
+    TabArea.BackgroundTransparency = 1
+    TabArea.Parent = Main
+
+    local Layout = Instance.new("UIListLayout", TabArea)
     Layout.Padding = UDim.new(0,8)
-
-    -- Open Animation
-    Main.Size = UDim2.new(0,0,0,0)
-    TweenService:Create(Main, TweenInfo.new(0.4, Enum.EasingStyle.Quart), {
-        Size = UDim2.new(0,500,0,600)
-    }):Play()
-
-    -- Drag (Mobile + PC)
-    local dragging = false
-    local dragStart
-    local startPos
-
-    Main.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1
-        or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = true
-            dragStart = input.Position
-            startPos = Main.Position
-        end
-    end)
-
-    UserInputService.InputChanged:Connect(function(input)
-        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement
-        or input.UserInputType == Enum.UserInputType.Touch) then
-            local delta = input.Position - dragStart
-            Main.Position = UDim2.new(
-                startPos.X.Scale,
-                startPos.X.Offset + delta.X,
-                startPos.Y.Scale,
-                startPos.Y.Offset + delta.Y
-            )
-        end
-    end)
-
-    UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1
-        or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = false
-        end
-    end)
 
     return {
         Window = Main,
-        Tabs = TabContent,
-        TabButtons = TabButtons,
-        Search = Search
+        Tabs = TabArea,
+        Sidebar = Sidebar,
+        Screen = ScreenGui
     }
 end
 
 ----------------------------------------------------
--- TAB SYSTEM
+-- ICON TAB SYSTEM
 ----------------------------------------------------
-function OceanUI:CreateTab(ui, name)
+function OceanUI:CreateTab(ui, name, iconId)
 
     local Button = Instance.new("TextButton")
-    Button.Size = UDim2.new(0,100,1,0)
-    Button.Text = name
-    Button.Parent = ui.TabButtons
+    Button.Size = UDim2.new(1,0,0,45)
+    Button.Text = "  "..name
+    Button.TextXAlignment = Enum.TextXAlignment.Left
+    Button.Font = Enum.Font.Gotham
+    Button.TextSize = 14
+    Button.BackgroundColor3 = Color3.fromRGB(25,45,70)
+    Button.TextColor3 = Color3.new(1,1,1)
+    Button.Parent = ui.Sidebar
+
     Instance.new("UICorner", Button)
+
+    -- Icon
+    if iconId then
+        local Icon = Instance.new("ImageLabel")
+        Icon.Size = UDim2.new(0,20,0,20)
+        Icon.Position = UDim2.new(0,10,0.5,-10)
+        Icon.BackgroundTransparency = 1
+        Icon.Image = iconId
+        Icon.Parent = Button
+    end
 
     local TabFrame = Instance.new("Frame")
     TabFrame.Size = UDim2.new(1,0,1,0)
     TabFrame.BackgroundTransparency = 1
     TabFrame.Visible = false
     TabFrame.Parent = ui.Tabs
+
+    Button.MouseEnter:Connect(function()
+        TweenService:Create(Button, TweenInfo.new(0.2), {
+            BackgroundColor3 = Color3.fromRGB(0,140,255)
+        }):Play()
+    end)
+
+    Button.MouseLeave:Connect(function()
+        TweenService:Create(Button, TweenInfo.new(0.2), {
+            BackgroundColor3 = Color3.fromRGB(25,45,70)
+        }):Play()
+    end)
 
     Button.MouseButton1Click:Connect(function()
         for _,v in pairs(ui.Tabs:GetChildren()) do
@@ -182,46 +150,66 @@ function OceanUI:CreateTab(ui, name)
 end
 
 ----------------------------------------------------
--- TOGGLE (With Save)
+-- PREMIUM BUTTON
 ----------------------------------------------------
-function OceanUI:CreateToggle(parent, text, saveName, callback)
+function OceanUI:CreateButton(parent, text, callback)
 
-    local Toggle = Instance.new("TextButton")
-    Toggle.Size = UDim2.new(1,0,0,40)
-    Toggle.Text = text
-    Toggle.Parent = parent
-    Instance.new("UICorner", Toggle)
+    local Button = Instance.new("TextButton")
+    Button.Size = UDim2.new(1,0,0,40)
+    Button.Text = text
+    Button.Font = Enum.Font.GothamSemibold
+    Button.TextSize = 14
+    Button.TextColor3 = Color3.new(1,1,1)
+    Button.BackgroundColor3 = Color3.fromRGB(0,120,200)
+    Button.Parent = parent
 
-    local state = LoadSetting(saveName) or false
-    callback(state)
+    Instance.new("UICorner", Button).CornerRadius = UDim.new(0,10)
 
-    local function update()
-        SaveSetting(saveName, state)
-        callback(state)
-        TweenService:Create(Toggle, TweenInfo.new(0.2), {
-            BackgroundColor3 = state and Color3.fromRGB(0,170,255)
-            or Color3.fromRGB(30,60,90)
+    Button.MouseEnter:Connect(function()
+        TweenService:Create(Button, TweenInfo.new(0.2), {
+            BackgroundColor3 = Color3.fromRGB(0,170,255)
         }):Play()
-    end
-
-    Toggle.MouseButton1Click:Connect(function()
-        state = not state
-        update()
     end)
 
-    update()
+    Button.MouseLeave:Connect(function()
+        TweenService:Create(Button, TweenInfo.new(0.2), {
+            BackgroundColor3 = Color3.fromRGB(0,120,200)
+        }):Play()
+    end)
+
+    Button.MouseButton1Click:Connect(callback)
 end
 
 ----------------------------------------------------
--- CLOSE WITH ANIMATION
+-- REAL SEARCH FILTER
 ----------------------------------------------------
-function OceanUI:Close(ui)
-    TweenService:Create(ui.Window, TweenInfo.new(0.3), {
-        Size = UDim2.new(0,0,0,0)
-    }):Play()
+function OceanUI:EnableSearch(ui)
 
-    task.wait(0.3)
-    ui.Window.Parent:Destroy()
+    ui.Search:GetPropertyChangedSignal("Text"):Connect(function()
+
+        local query = string.lower(ui.Search.Text)
+
+        for _,tab in pairs(ui.Tabs:GetChildren()) do
+            for _,element in pairs(tab:GetChildren()) do
+                if element:IsA("TextButton") then
+                    local match = string.find(string.lower(element.Text), query)
+                    element.Visible = query == "" or match
+                end
+            end
+        end
+    end)
+end
+
+----------------------------------------------------
+-- OPEN ANIMATION
+----------------------------------------------------
+function OceanUI:AnimateOpen(frame)
+
+    frame.Size = UDim2.new(0,0,0,0)
+
+    TweenService:Create(frame, TweenInfo.new(0.5, Enum.EasingStyle.Quart), {
+        Size = UDim2.new(0,650,0,450)
+    }):Play()
 end
 
 return OceanUI
