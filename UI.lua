@@ -1,969 +1,1193 @@
+--[[
+    ╔══════════════════════════════════════════╗
+    ║          OceanUI — Roblox Library        ║
+    ║       Ocean Theme · Wave Edition         ║
+    ╚══════════════════════════════════════════╝
+
+    COMPONENTS:
+      • Toggle
+      • Button
+      • Slider
+      • Dropdown
+      • MultiDropdown
+      • InputBox
+      • Paragraph
+      • Notify
+
+    USAGE EXAMPLE:
+        local OceanUI = loadstring(game:HttpGet("..."))()
+        local Window  = OceanUI:CreateWindow({ Title = "My Script" })
+        local Tab     = Window:AddTab("Main")
+        Tab:AddButton({ Text = "Click Me", Callback = function() print("Hi!") end })
+--]]
 
 local OceanUI = {}
 OceanUI.__index = OceanUI
 
--- Services
-local TweenService = game:GetService("TweenService")
+---------------------------------------------------------------------------
+-- SERVICES
+---------------------------------------------------------------------------
+local Players        = game:GetService("Players")
+local TweenService   = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
-local RunService = game:GetService("RunService")
+local RunService     = game:GetService("RunService")
 
--- Tween settings
-local TWEEN_INFO = {
-    NORMAL = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-    SMOOTH = TweenInfo.new(0.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out),
-    BOUNCE = TweenInfo.new(0.5, Enum.EasingStyle.Bounce, Enum.EasingDirection.Out)
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui   = LocalPlayer:WaitForChild("PlayerGui")
+
+---------------------------------------------------------------------------
+-- OCEAN THEME PALETTE
+---------------------------------------------------------------------------
+local Theme = {
+    -- Backgrounds
+    BG          = Color3.fromRGB(8,  22,  40),   -- deep ocean
+    BGSecondary = Color3.fromRGB(12, 32,  58),   -- slightly lighter
+    BGTertiary  = Color3.fromRGB(16, 44,  76),   -- panel
+    BGHover     = Color3.fromRGB(20, 55,  92),   -- hover state
+
+    -- Accents
+    Accent      = Color3.fromRGB(0,  188, 212),  -- cyan wave
+    AccentDark  = Color3.fromRGB(0,  137, 167),  -- darker cyan
+    AccentGlow  = Color3.fromRGB(64, 224, 255),  -- bright foam
+
+    -- Text
+    TextPrimary   = Color3.fromRGB(220, 245, 255),
+    TextSecondary = Color3.fromRGB(130, 185, 210),
+    TextMuted     = Color3.fromRGB(70,  120, 150),
+
+    -- Status
+    Success  = Color3.fromRGB(0,  210, 140),
+    Warning  = Color3.fromRGB(255, 185, 0),
+    Error    = Color3.fromRGB(255, 75,  75),
+    Info     = Color3.fromRGB(0,  188, 212),
+
+    -- Misc
+    Separator   = Color3.fromRGB(0,  80,  120),
+    Shadow      = Color3.fromRGB(0,  5,   15),
+    ToggleOff   = Color3.fromRGB(30, 55,  80),
+    ToggleOn    = Color3.fromRGB(0,  188, 212),
+    SliderTrack = Color3.fromRGB(15, 45,  70),
+    SliderFill  = Color3.fromRGB(0,  188, 212),
+    SliderThumb = Color3.fromRGB(220, 245, 255),
 }
 
--- Color palette - Ocean Theme
-local COLORS = {
-    PRIMARY = Color3.fromRGB(0, 105, 148),      -- Deep Ocean Blue
-    PRIMARY_DARK = Color3.fromRGB(0, 78, 110),  -- Dark Ocean
-    PRIMARY_LIGHT = Color3.fromRGB(64, 163, 201), -- Light Ocean
-    SECONDARY = Color3.fromRGB(0, 168, 168),    -- Sea Green
-    ACCENT = Color3.fromRGB(255, 193, 7),       -- Coral/Sunlight
-    BACKGROUND = Color3.fromRGB(15, 32, 46),    -- Deep Sea Dark
-    SURFACE = Color3.fromRGB(27, 48, 66),       -- Ocean Surface
-    SURFACE_HOVER = Color3.fromRGB(35, 62, 84), -- Slightly Lighter
-    TEXT = Color3.fromRGB(240, 248, 255),       -- Foam White
-    TEXT_DARK = Color3.fromRGB(200, 214, 229),  -- Muted Foam
-    ERROR = Color3.fromRGB(255, 82, 82),        -- Coral Red
-    SUCCESS = Color3.fromRGB(76, 175, 80),      -- Seaweed Green
-    WARNING = Color3.fromRGB(255, 193, 7),      -- Sandy Yellow
-    BORDER = Color3.fromRGB(64, 108, 137)       -- Deep Border
-}
-
--- Utility functions
-local function createRoundedFrame(parent, size, position, color, transparency)
-    local frame = Instance.new("Frame")
-    frame.Size = size
-    frame.Position = position
-    frame.BackgroundColor3 = color or COLORS.SURFACE
-    frame.BackgroundTransparency = transparency or 0
-    frame.BorderSizePixel = 0
-    frame.Parent = parent
-    
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 8)
-    corner.Parent = frame
-    
-    return frame
-end
-
-local function createTextLabel(parent, text, size, position, textSize, color)
-    local label = Instance.new("TextLabel")
-    label.Size = size
-    label.Position = position
-    label.BackgroundTransparency = 1
-    label.Text = text
-    label.TextColor3 = color or COLORS.TEXT
-    label.TextSize = textSize or 14
-    label.TextXAlignment = Enum.TextXAlignment.Center
-    label.TextYAlignment = Enum.TextYAlignment.Center
-    label.Font = Enum.Font.GothamMedium
-    label.Parent = parent
-    return label
-end
-
-local function createStroke(parent, color, thickness)
-    local stroke = Instance.new("UIStroke")
-    stroke.Color = color or COLORS.BORDER
-    stroke.Thickness = thickness or 1
-    stroke.Parent = parent
-    return stroke
-end
-
--- Main UI Manager
-function OceanUI.new(screenGui)
-    local self = setmetatable({}, OceanUI)
-    self.ScreenGui = screenGui or Instance.new("ScreenGui")
-    self.ScreenGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
-    self.Components = {}
-    self.Notifications = {}
-    
-    -- Main container
-    self.MainContainer = Instance.new("Frame")
-    self.MainContainer.Size = UDim2.new(1, 0, 1, 0)
-    self.MainContainer.BackgroundTransparency = 1
-    self.MainContainer.Parent = self.ScreenGui
-    
-    return self
-end
-
--- Button Component
-function OceanUI:CreateButton(options)
-    local button = {}
-    
-    button.Frame = createRoundedFrame(
-        options.Parent or self.MainContainer,
-        options.Size or UDim2.new(0, 200, 0, 45),
-        options.Position or UDim2.new(0.5, -100, 0.5, -22),
-        COLORS.PRIMARY,
-        0
+---------------------------------------------------------------------------
+-- TWEEN HELPER
+---------------------------------------------------------------------------
+local function Tween(obj, props, duration, style, direction)
+    local info = TweenInfo.new(
+        duration    or 0.25,
+        style       or Enum.EasingStyle.Quart,
+        direction   or Enum.EasingDirection.Out
     )
-    
-    button.Label = createTextLabel(
-        button.Frame,
-        options.Text or "Button",
-        UDim2.new(1, 0, 1, 0),
-        UDim2.new(0, 0, 0, 0),
-        options.TextSize or 16,
-        COLORS.TEXT
-    )
-    
-    -- Hover effects
-    local hoverTween = TweenService:Create(button.Frame, TWEEN_INFO.SMOOTH, {
-        BackgroundColor3 = COLORS.PRIMARY_LIGHT
-    })
-    
-    local leaveTween = TweenService:Create(button.Frame, TWEEN_INFO.SMOOTH, {
-        BackgroundColor3 = COLORS.PRIMARY
-    })
-    
-    button.Frame.MouseEnter:Connect(function()
-        hoverTween:Play()
-    end)
-    
-    button.Frame.MouseLeave:Connect(function()
-        leaveTween:Play()
-    end)
-    
-    -- Click event
-    if options.OnClick then
-        button.Frame.InputBegan:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                local clickTween = TweenService:Create(button.Frame, TWEEN_INFO.NORMAL, {
-                    BackgroundColor3 = COLORS.PRIMARY_DARK
-                })
-                clickTween:Play()
-                clickTween.Completed:Connect(function()
-                    leaveTween:Play()
-                end)
-                options.OnClick()
-            end
-        end)
+    TweenService:Create(obj, info, props):Play()
+end
+
+---------------------------------------------------------------------------
+-- CREATE INSTANCE HELPER
+---------------------------------------------------------------------------
+local function New(class, props, parent)
+    local inst = Instance.new(class)
+    for k, v in pairs(props) do
+        inst[k] = v
     end
-    
-    button:SetText = function(newText)
-        button.Label.Text = newText
-    end
-    
-    button:SetEnabled = function(enabled)
-        button.Frame.Active = enabled
-        button.Frame.BackgroundTransparency = enabled and 0 or 0.5
-    end
-    
-    table.insert(self.Components, button)
-    return button
+    if parent then inst.Parent = parent end
+    return inst
 end
 
--- Toggle Button Component
-function OceanUI:CreateToggle(options)
-    local toggle = {}
-    toggle.Value = options.Default or false
-    
-    toggle.Frame = createRoundedFrame(
-        options.Parent or self.MainContainer,
-        options.Size or UDim2.new(0, 250, 0, 50),
-        options.Position or UDim2.new(0.5, -125, 0.5, -25),
-        COLORS.SURFACE,
-        0
-    )
-    
-    toggle.Label = createTextLabel(
-        toggle.Frame,
-        options.Text or "Toggle",
-        UDim2.new(0, 180, 1, 0),
-        UDim2.new(0, 10, 0, 0),
-        14,
-        COLORS.TEXT
-    )
-    toggle.Label.TextXAlignment = Enum.TextXAlignment.Left
-    
-    -- Toggle switch
-    toggle.Switch = createRoundedFrame(
-        toggle.Frame,
-        UDim2.new(0, 50, 0, 26),
-        UDim2.new(1, -60, 0.5, -13),
-        toggle.Value and COLORS.PRIMARY_LIGHT or COLORS.TEXT_DARK,
-        0
-    )
-    
-    toggle.Knob = createRoundedFrame(
-        toggle.Switch,
-        UDim2.new(0, 22, 0, 22),
-        toggle.Value and UDim2.new(1, -24, 0.5, -11) or UDim2.new(0, 2, 0.5, -11),
-        COLORS.TEXT,
-        0
-    )
-    toggle.Knob.BackgroundColor3 = COLORS.TEXT
-    
-    local function updateToggle(value)
-        toggle.Value = value
-        local targetColor = value and COLORS.PRIMARY_LIGHT or COLORS.TEXT_DARK
-        local targetPosition = value and UDim2.new(1, -24, 0.5, -11) or UDim2.new(0, 2, 0.5, -11)
-        
-        TweenService:Create(toggle.Switch, TWEEN_INFO.SMOOTH, {
-            BackgroundColor3 = targetColor
-        }):Play()
-        
-        TweenService:Create(toggle.Knob, TWEEN_INFO.SMOOTH, {
-            Position = targetPosition
-        }):Play()
-        
-        if options.OnChanged then
-            options.OnChanged(value)
-        end
-    end
-    
-    toggle.Switch.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            updateToggle(not toggle.Value)
+---------------------------------------------------------------------------
+-- DRAGGING HELPER
+---------------------------------------------------------------------------
+local function MakeDraggable(frame, handle)
+    handle = handle or frame
+    local dragging, dragInput, mousePos, framePos
+
+    handle.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or
+           input.UserInputType == Enum.UserInputType.Touch then
+            dragging  = true
+            mousePos  = input.Position
+            framePos  = frame.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
         end
     end)
-    
-    toggle:SetValue = updateToggle
-    toggle:GetValue = function() return toggle.Value end
-    
-    table.insert(self.Components, toggle)
-    return toggle
-end
 
--- Slider Component
-function OceanUI:CreateSlider(options)
-    local slider = {}
-    slider.Value = options.Default or options.Min or 0
-    slider.Min = options.Min or 0
-    slider.Max = options.Max or 100
-    
-    slider.Frame = createRoundedFrame(
-        options.Parent or self.MainContainer,
-        options.Size or UDim2.new(0, 300, 0, 70),
-        options.Position or UDim2.new(0.5, -150, 0.5, -35),
-        COLORS.SURFACE,
-        0
-    )
-    
-    slider.Label = createTextLabel(
-        slider.Frame,
-        options.Text or "Slider",
-        UDim2.new(1, 0, 0, 20),
-        UDim2.new(0, 10, 0, 5),
-        14,
-        COLORS.TEXT
-    )
-    slider.Label.TextXAlignment = Enum.TextXAlignment.Left
-    
-    slider.ValueLabel = createTextLabel(
-        slider.Frame,
-        tostring(slider.Value),
-        UDim2.new(1, -10, 0, 20),
-        UDim2.new(0, 0, 0, 5),
-        14,
-        COLORS.PRIMARY_LIGHT
-    )
-    slider.ValueLabel.TextXAlignment = Enum.TextXAlignment.Right
-    
-    -- Slider track
-    slider.Track = createRoundedFrame(
-        slider.Frame,
-        UDim2.new(0, options.TrackWidth or 280, 0, 4),
-        UDim2.new(0, 10, 1, -15),
-        COLORS.BORDER,
-        0
-    )
-    
-    slider.Fill = createRoundedFrame(
-        slider.Track,
-        UDim2.new((slider.Value - slider.Min) / (slider.Max - slider.Min), 0, 1, 0),
-        UDim2.new(0, 0, 0, 0),
-        COLORS.PRIMARY_LIGHT,
-        0
-    )
-    
-    slider.Handle = createRoundedFrame(
-        slider.Track,
-        UDim2.new(0, 16, 0, 16),
-        UDim2.new((slider.Value - slider.Min) / (slider.Max - slider.Min), -8, 0.5, -8),
-        COLORS.PRIMARY,
-        0
-    )
-    slider.Handle.BackgroundColor3 = COLORS.TEXT
-    
-    local dragging = false
-    
-    local function updateSlider(value)
-        value = math.clamp(value, slider.Min, slider.Max)
-        slider.Value = value
-        local percent = (value - slider.Min) / (slider.Max - slider.Min)
-        
-        slider.Fill.Size = UDim2.new(percent, 0, 1, 0)
-        slider.Handle.Position = UDim2.new(percent, -8, 0.5, -8)
-        slider.ValueLabel.Text = options.Decimal and string.format("%.1f", value) or tostring(math.floor(value))
-        
-        if options.OnChanged then
-            options.OnChanged(value)
-        end
-    end
-    
-    slider.Handle.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = true
+    handle.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or
+           input.UserInputType == Enum.UserInputType.Touch then
+            dragInput = input
         end
     end)
-    
-    UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = false
-        end
-    end)
-    
+
     UserInputService.InputChanged:Connect(function(input)
-        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-            local mousePos = UserInputService:GetMouseLocation()
-            local trackAbsPos = slider.Track.AbsolutePosition
-            local trackWidth = slider.Track.AbsoluteSize.X
-            
-            local percent = math.clamp((mousePos.X - trackAbsPos.X) / trackWidth, 0, 1)
-            local value = slider.Min + (slider.Max - slider.Min) * percent
-            updateSlider(value)
+        if input == dragInput and dragging then
+            local delta = input.Position - mousePos
+            frame.Position = UDim2.new(
+                framePos.X.Scale,
+                framePos.X.Offset + delta.X,
+                framePos.Y.Scale,
+                framePos.Y.Offset + delta.Y
+            )
         end
     end)
-    
-    slider:SetValue = updateSlider
-    slider:GetValue = function() return slider.Value end
-    
-    table.insert(self.Components, slider)
-    return slider
 end
 
--- Dropdown Component
-function OceanUI:CreateDropdown(options)
-    local dropdown = {}
-    dropdown.Open = false
-    dropdown.Selected = options.Default or options.Items[1] or ""
-    dropdown.Items = options.Items or {}
-    
-    dropdown.Frame = createRoundedFrame(
-        options.Parent or self.MainContainer,
-        options.Size or UDim2.new(0, 200, 0, 40),
-        options.Position or UDim2.new(0.5, -100, 0.5, -20),
-        COLORS.SURFACE,
-        0
-    )
-    
-    dropdown.SelectedLabel = createTextLabel(
-        dropdown.Frame,
-        dropdown.Selected,
-        UDim2.new(1, -30, 1, 0),
-        UDim2.new(0, 10, 0, 0),
-        14,
-        COLORS.TEXT
-    )
-    dropdown.SelectedLabel.TextXAlignment = Enum.TextXAlignment.Left
-    
-    -- Arrow icon
-    dropdown.Arrow = createTextLabel(
-        dropdown.Frame,
-        "▼",
-        UDim2.new(0, 30, 1, 0),
-        UDim2.new(1, -30, 0, 0),
-        12,
-        COLORS.PRIMARY_LIGHT
-    )
-    
-    -- Dropdown list
-    dropdown.List = createRoundedFrame(
-        dropdown.Frame,
-        UDim2.new(1, 0, 0, #dropdown.Items * 35),
-        UDim2.new(0, 0, 1, 5),
-        COLORS.SURFACE,
-        0
-    )
-    dropdown.List.Visible = false
-    
-    dropdown.Buttons = {}
-    
-    for i, item in ipairs(dropdown.Items) do
-        local itemBtn = createRoundedFrame(
-            dropdown.List,
-            UDim2.new(1, -10, 0, 30),
-            UDim2.new(0, 5, 0, 5 + (i-1) * 35),
-            COLORS.SURFACE_HOVER,
-            0
-        )
-        
-        local itemLabel = createTextLabel(
-            itemBtn,
-            item,
-            UDim2.new(1, 0, 1, 0),
-            UDim2.new(0, 0, 0, 0),
-            13,
-            COLORS.TEXT
-        )
-        itemLabel.TextXAlignment = Enum.TextXAlignment.Left
-        
-        itemBtn.MouseEnter:Connect(function()
-            TweenService:Create(itemBtn, TWEEN_INFO.NORMAL, {
-                BackgroundColor3 = COLORS.PRIMARY
-            }):Play()
-        end)
-        
-        itemBtn.MouseLeave:Connect(function()
-            TweenService:Create(itemBtn, TWEEN_INFO.NORMAL, {
-                BackgroundColor3 = COLORS.SURFACE_HOVER
-            }):Play()
-        end)
-        
-        itemBtn.InputBegan:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                dropdown.Selected = item
-                dropdown.SelectedLabel.Text = item
-                dropdown:Toggle()
-                if options.OnSelected then
-                    options.OnSelected(item)
-                end
-            end
-        end)
-        
-        dropdown.Buttons[item] = itemBtn
-    end
-    
-    local function toggleDropdown()
-        dropdown.Open = not dropdown.Open
-        dropdown.List.Visible = dropdown.Open
-        dropdown.Arrow.Text = dropdown.Open and "▲" or "▼"
-        
-        if dropdown.Open then
-            TweenService:Create(dropdown.List, TWEEN_INFO.SMOOTH, {
-                BackgroundTransparency = 0
-            }):Play()
-        end
-    end
-    
-    dropdown.Frame.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            toggleDropdown()
-        end
+---------------------------------------------------------------------------
+-- RIPPLE EFFECT
+---------------------------------------------------------------------------
+local function AddRipple(btn)
+    btn.InputBegan:Connect(function(input)
+        if input.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
+        local rip = New("Frame", {
+            BackgroundColor3 = Color3.fromRGB(255,255,255),
+            BackgroundTransparency = 0.7,
+            Size  = UDim2.new(0, 0, 0, 0),
+            AnchorPoint = Vector2.new(0.5, 0.5),
+            Position = UDim2.new(
+                0, input.Position.X - btn.AbsolutePosition.X,
+                0, input.Position.Y - btn.AbsolutePosition.Y
+            ),
+            ZIndex = btn.ZIndex + 1,
+            ClipsDescendants = false,
+        }, btn)
+        New("UICorner", { CornerRadius = UDim.new(1, 0) }, rip)
+        local sz = math.max(btn.AbsoluteSize.X, btn.AbsoluteSize.Y) * 2.5
+        Tween(rip, { Size = UDim2.new(0, sz, 0, sz), BackgroundTransparency = 1 }, 0.5)
+        task.delay(0.5, function() rip:Destroy() end)
     end)
-    
-    dropdown:Toggle = toggleDropdown
-    dropdown:GetSelected = function() return dropdown.Selected end
-    dropdown:SetItems = function(newItems)
-        dropdown.Items = newItems
-        -- Rebuild list (simplified for brevity)
-    end
-    
-    table.insert(self.Components, dropdown)
-    return dropdown
 end
 
--- Multi Dropdown Component
-function OceanUI:CreateMultiDropdown(options)
-    local multidd = {}
-    multidd.Open = false
-    multidd.Selected = {}
-    multidd.Items = options.Items or {}
-    
-    multidd.Frame = createRoundedFrame(
-        options.Parent or self.MainContainer,
-        options.Size or UDim2.new(0, 220, 0, 45),
-        options.Position or UDim2.new(0.5, -110, 0.5, -22),
-        COLORS.SURFACE,
-        0
-    )
-    
-    multidd.Label = createTextLabel(
-        multidd.Frame,
-        options.Text or "Multi Select",
-        UDim2.new(0, 100, 0, 20),
-        UDim2.new(0, 10, 0, 5),
-        12,
-        COLORS.TEXT_DARK
-    )
-    multidd.Label.TextXAlignment = Enum.TextXAlignment.Left
-    
-    multidd.SelectedLabel = createTextLabel(
-        multidd.Frame,
-        "None selected",
-        UDim2.new(1, -30, 1, -25),
-        UDim2.new(0, 10, 0, 25),
-        13,
-        COLORS.TEXT
-    )
-    multidd.SelectedLabel.TextXAlignment = Enum.TextXAlignment.Left
-    
-    multidd.Arrow = createTextLabel(
-        multidd.Frame,
-        "▼",
-        UDim2.new(0, 30, 0, 20),
-        UDim2.new(1, -30, 1, -38),
-        12,
-        COLORS.PRIMARY_LIGHT
-    )
-    
-    multidd.List = createRoundedFrame(
-        multidd.Frame,
-        UDim2.new(1, 0, 0, #multidd.Items * 35),
-        UDim2.new(0, 0, 1, 5),
-        COLORS.SURFACE,
-        0
-    )
-    multidd.List.Visible = false
-    
-    multidd.Checkboxes = {}
-    
-    for i, item in ipairs(multidd.Items) do
-        local itemFrame = createRoundedFrame(
-            multidd.List,
-            UDim2.new(1, -10, 0, 30),
-            UDim2.new(0, 5, 0, 5 + (i-1) * 35),
-            COLORS.SURFACE_HOVER,
-            0
-        )
-        
-        local checkBox = createRoundedFrame(
-            itemFrame,
-            UDim2.new(0, 16, 0, 16),
-            UDim2.new(0, 10, 0.5, -8),
-            COLORS.PRIMARY_DARK,
-            0
-        )
-        
-        local checkMark = createTextLabel(
-            checkBox,
-            "✓",
-            UDim2.new(1, 0, 1, 0),
-            UDim2.new(0, 0, 0, 0),
-            12,
-            COLORS.TEXT
-        )
-        checkMark.Visible = false
-        
-        local itemLabel = createTextLabel(
-            itemFrame,
-            item,
-            UDim2.new(1, -40, 1, 0),
-            UDim2.new(0, 35, 0, 0),
-            13,
-            COLORS.TEXT
-        )
-        itemLabel.TextXAlignment = Enum.TextXAlignment.Left
-        
-        multidd.Checkboxes[item] = {
-            Frame = itemFrame,
-            CheckBox = checkBox,
-            CheckMark = checkMark,
-            Selected = false
-        }
-        
-        itemFrame.InputBegan:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                local cb = multidd.Checkboxes[item]
-                cb.Selected = not cb.Selected
-                cb.CheckMark.Visible = cb.Selected
-                
-                if cb.Selected then
-                    table.insert(multidd.Selected, item)
-                else
-                    for j, v in ipairs(multidd.Selected) do
-                        if v == item then
-                            table.remove(multidd.Selected, j)
-                            break
-                        end
-                    end
-                end
-                
-                -- Update selected label
-                if #multidd.Selected == 0 then
-                    multidd.SelectedLabel.Text = "None selected"
-                else
-                    multidd.SelectedLabel.Text = table.concat(multidd.Selected, ", ")
-                end
-                
-                if options.OnSelected then
-                    options.OnSelected(multidd.Selected)
-                end
-            end
-        end)
+---------------------------------------------------------------------------
+-- SHIMMER WAVE (decorative)
+---------------------------------------------------------------------------
+local function AddShimmer(frame)
+    local shimmer = New("Frame", {
+        BackgroundColor3 = Color3.fromRGB(255,255,255),
+        BackgroundTransparency = 0.92,
+        Size  = UDim2.new(0.3, 0, 1, 0),
+        Position = UDim2.new(-0.3, 0, 0, 0),
+        ZIndex = frame.ZIndex + 1,
+        ClipsDescendants = false,
+    }, frame)
+    New("UIGradient", {
+        Rotation = 30,
+        Transparency = NumberSequence.new({
+            NumberSequenceKeypoint.new(0, 1),
+            NumberSequenceKeypoint.new(0.5, 0.7),
+            NumberSequenceKeypoint.new(1, 1),
+        }),
+    }, shimmer)
+
+    local function anim()
+        shimmer.Position = UDim2.new(-0.3, 0, 0, 0)
+        Tween(shimmer, { Position = UDim2.new(1.3, 0, 0, 0) }, 2.5,
+              Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+        task.delay(5, anim)
     end
-    
-    local function toggleDropdown()
-        multidd.Open = not multidd.Open
-        multidd.List.Visible = multidd.Open
-        multidd.Arrow.Text = multidd.Open and "▲" or "▼"
-    end
-    
-    multidd.Frame.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            toggleDropdown()
-        end
-    end)
-    
-    multidd:Toggle = toggleDropdown
-    multidd:GetSelected = function() return multidd.Selected end
-    
-    table.insert(self.Components, multidd)
-    return multidd
+    task.delay(math.random(0, 3), anim)
 end
 
--- Input Box Component
-function OceanUI:CreateInputBox(options)
-    local inputBox = {}
-    
-    inputBox.Frame = createRoundedFrame(
-        options.Parent or self.MainContainer,
-        options.Size or UDim2.new(0, 250, 0, 60),
-        options.Position or UDim2.new(0.5, -125, 0.5, -30),
-        COLORS.SURFACE,
-        0
-    )
-    
-    inputBox.Label = createTextLabel(
-        inputBox.Frame,
-        options.Label or "Input",
-        UDim2.new(1, -10, 0, 20),
-        UDim2.new(0, 10, 0, 5),
-        12,
-        COLORS.TEXT_DARK
-    )
-    inputBox.Label.TextXAlignment = Enum.TextXAlignment.Left
-    
-    inputBox.TextBox = Instance.new("TextBox")
-    inputBox.TextBox.Size = UDim2.new(1, -20, 0, 30)
-    inputBox.TextBox.Position = UDim2.new(0, 10, 0, 25)
-    inputBox.TextBox.BackgroundColor3 = COLORS.SURFACE_HOVER
-    inputBox.TextBox.TextColor3 = COLORS.TEXT
-    inputBox.TextBox.TextSize = 14
-    inputBox.TextBox.Font = Enum.Font.GothamMedium
-    inputBox.TextBox.PlaceholderText = options.Placeholder or "Enter text..."
-    inputBox.TextBox.PlaceholderColor3 = COLORS.TEXT_DARK
-    inputBox.TextBox.Text = options.Default or ""
-    inputBox.TextBox.ClearTextOnFocus = false
-    inputBox.TextBox.Parent = inputBox.Frame
-    
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 6)
-    corner.Parent = inputBox.TextBox
-    
-    local stroke = createStroke(inputBox.TextBox, COLORS.BORDER, 1)
-    
-    inputBox.TextBox.Focused:Connect(function()
-        stroke.Color = COLORS.PRIMARY_LIGHT
-        stroke.Thickness = 2
-    end)
-    
-    inputBox.TextBox.FocusLost:Connect(function(enterPressed)
-        stroke.Color = COLORS.BORDER
-        stroke.Thickness = 1
-        if options.OnSubmit and enterPressed then
-            options.OnSubmit(inputBox.TextBox.Text)
-        elseif options.OnChanged then
-            options.OnChanged(inputBox.TextBox.Text)
-        end
-    end)
-    
-    inputBox:GetText = function() return inputBox.TextBox.Text end
-    inputBox:SetText = function(text) inputBox.TextBox.Text = text end
-    
-    table.insert(self.Components, inputBox)
-    return inputBox
-end
+---------------------------------------------------------------------------
+-- NOTIFICATION SYSTEM
+---------------------------------------------------------------------------
+local NotifyHolder = New("ScreenGui", {
+    Name = "OceanUI_Notify",
+    IgnoreGuiInset = true,
+    ResetOnSpawn = false,
+    ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+}, PlayerGui)
 
--- Paragraph Component
-function OceanUI:CreateParagraph(options)
-    local paragraph = {}
-    
-    paragraph.Frame = createRoundedFrame(
-        options.Parent or self.MainContainer,
-        options.Size or UDim2.new(0, 350, 0, 150),
-        options.Position or UDim2.new(0.5, -175, 0.5, -75),
-        COLORS.SURFACE,
-        0
-    )
-    
-    if options.Title then
-        paragraph.Title = createTextLabel(
-            paragraph.Frame,
-            options.Title,
-            UDim2.new(1, -20, 0, 30),
-            UDim2.new(0, 10, 0, 10),
-            18,
-            COLORS.PRIMARY_LIGHT
-        )
-        paragraph.Title.TextXAlignment = Enum.TextXAlignment.Left
-        paragraph.Title.Font = Enum.Font.GothamBold
-    end
-    
-    paragraph.Text = Instance.new("TextLabel")
-    paragraph.Text.Size = UDim2.new(1, -20, 1, -50)
-    paragraph.Text.Position = UDim2.new(0, 10, 0, (options.Title and 45 or 10))
-    paragraph.Text.BackgroundTransparency = 1
-    paragraph.Text.Text = options.Text or ""
-    paragraph.Text.TextColor3 = COLORS.TEXT
-    paragraph.Text.TextSize = options.TextSize or 14
-    paragraph.Text.TextXAlignment = Enum.TextXAlignment.Left
-    paragraph.Text.TextYAlignment = Enum.TextYAlignment.Top
-    paragraph.Text.TextWrapped = true
-    paragraph.Text.Font = Enum.Font.GothamBook
-    paragraph.Text.Parent = paragraph.Frame
-    
-    paragraph:SetText = function(newText)
-        paragraph.Text.Text = newText
-    end
-    
-    table.insert(self.Components, paragraph)
-    return paragraph
-end
+local NotifyStack = New("Frame", {
+    BackgroundTransparency = 1,
+    Size     = UDim2.new(0, 320, 1, 0),
+    Position = UDim2.new(1, -340, 0, 20),
+    AnchorPoint = Vector2.new(0, 0),
+}, NotifyHolder)
 
--- Notify Component
-function OceanUI:Notify(options)
-    local notification = {}
-    
-    local notifFrame = createRoundedFrame(
-        self.MainContainer,
-        UDim2.new(0, 300, 0, 70),
-        UDim2.new(1, -320, 0, 10),
-        COLORS.SURFACE,
-        0
-    )
-    
-    -- Icon based on type
-    local icon = "📘"
-    local iconColor = COLORS.PRIMARY_LIGHT
-    
-    if options.Type == "success" then
-        icon = "✓"
-        iconColor = COLORS.SUCCESS
-    elseif options.Type == "error" then
-        icon = "✗"
-        iconColor = COLORS.ERROR
-    elseif options.Type == "warning" then
-        icon = "⚠"
-        iconColor = COLORS.WARNING
-    end
-    
-    local iconLabel = createTextLabel(
-        notifFrame,
-        icon,
-        UDim2.new(0, 40, 1, 0),
-        UDim2.new(0, 0, 0, 0),
-        24,
-        iconColor
-    )
-    
-    local titleLabel = createTextLabel(
-        notifFrame,
-        options.Title or "Notification",
-        UDim2.new(1, -50, 0, 25),
-        UDim2.new(0, 50, 0, 8),
-        14,
-        COLORS.PRIMARY_LIGHT
-    )
-    titleLabel.TextXAlignment = Enum.TextXAlignment.Left
-    
-    local messageLabel = createTextLabel(
-        notifFrame,
-        options.Message or "",
-        UDim2.new(1, -50, 0, 35),
-        UDim2.new(0, 50, 0, 33),
-        12,
-        COLORS.TEXT
-    )
-    messageLabel.TextXAlignment = Enum.TextXAlignment.Left
-    messageLabel.TextWrapped = true
-    
-    local closeBtn = createTextLabel(
-        notifFrame,
-        "✗",
-        UDim2.new(0, 25, 0, 25),
-        UDim2.new(1, -30, 0, 8),
-        14,
-        COLORS.TEXT_DARK
-    )
-    
-    closeBtn.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            TweenService:Create(notifFrame, TWEEN_INFO.SMOOTH, {
-                Position = UDim2.new(1, -320, 0, -100)
-            }):Play()
-            task.wait(0.3)
-            notifFrame:Destroy()
-        end
-    end)
-    
-    -- Animate in
-    notifFrame.Position = UDim2.new(1, -320, 0, -100)
-    TweenService:Create(notifFrame, TWEEN_INFO.BOUNCE, {
-        Position = UDim2.new(1, -320, 0, 10)
-    }):Play()
-    
-    -- Auto dismiss
-    if options.Duration ~= false then
-        task.wait(options.Duration or 3)
-        if notifFrame and notifFrame.Parent then
-            TweenService:Create(notifFrame, TWEEN_INFO.SMOOTH, {
-                Position = UDim2.new(1, -320, 0, -100)
-            }):Play()
-            task.wait(0.3)
-            notifFrame:Destroy()
-        end
-    end
-    
-    table.insert(self.Notifications, notification)
-    return notification
-end
+New("UIListLayout", {
+    SortOrder       = Enum.SortOrder.LayoutOrder,
+    VerticalAlignment = Enum.VerticalAlignment.Top,
+    Padding         = UDim.new(0, 8),
+}, NotifyStack)
 
--- Example usage script
-local function CreateExampleUI()
-    -- Create ScreenGui
-    local screenGui = Instance.new("ScreenGui")
-    screenGui.Name = "OceanUI"
-    screenGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
-    
-    -- Initialize OceanUI
-    local ui = OceanUI.new(screenGui)
-    
-    -- Create main panel
-    local mainPanel = createRoundedFrame(
-        screenGui,
-        UDim2.new(0, 400, 0, 600),
-        UDim2.new(0.5, -200, 0.5, -300),
-        COLORS.BACKGROUND,
-        0.95
-    )
-    
+local function Notify(opts)
+    opts = opts or {}
+    local title    = opts.Title    or "OceanUI"
+    local text     = opts.Text     or ""
+    local duration = opts.Duration or 4
+    local ntype    = opts.Type     or "Info" -- Info | Success | Warning | Error
+
+    local colorMap = {
+        Info    = Theme.Info,
+        Success = Theme.Success,
+        Warning = Theme.Warning,
+        Error   = Theme.Error,
+    }
+    local accentColor = colorMap[ntype] or Theme.Info
+
+    local card = New("Frame", {
+        BackgroundColor3 = Theme.BGTertiary,
+        Size    = UDim2.new(1, 0, 0, 72),
+        ClipsDescendants = true,
+        BackgroundTransparency = 0,
+    }, NotifyStack)
+    New("UICorner",  { CornerRadius = UDim.new(0, 10) }, card)
+    New("UIStroke",  { Color = accentColor, Thickness = 1.2, Transparency = 0.4 }, card)
+
+    -- Left accent bar
+    New("Frame", {
+        BackgroundColor3 = accentColor,
+        Size    = UDim2.new(0, 4, 1, 0),
+        Position = UDim2.new(0, 0, 0, 0),
+    }, card)
+
+    -- Icon circle
+    local iconBg = New("Frame", {
+        BackgroundColor3 = accentColor,
+        BackgroundTransparency = 0.75,
+        Size    = UDim2.new(0, 36, 0, 36),
+        Position = UDim2.new(0, 16, 0.5, 0),
+        AnchorPoint = Vector2.new(0, 0.5),
+    }, card)
+    New("UICorner", { CornerRadius = UDim.new(1, 0) }, iconBg)
+
+    local iconSymbols = { Info = "ℹ", Success = "✓", Warning = "⚠", Error = "✕" }
+    New("TextLabel", {
+        BackgroundTransparency = 1,
+        Size = UDim2.new(1, 0, 1, 0),
+        Font = Enum.Font.GothamBold,
+        Text = iconSymbols[ntype] or "ℹ",
+        TextColor3 = accentColor,
+        TextSize = 16,
+    }, iconBg)
+
     -- Title
-    local title = createTextLabel(
-        mainPanel,
-        "🌊 Ocean UI Library",
-        UDim2.new(1, 0, 0, 50),
-        UDim2.new(0, 0, 0, 0),
-        24,
-        COLORS.PRIMARY_LIGHT
-    )
-    title.Font = Enum.Font.GothamBold
-    
-    -- Separator line
-    local line = Instance.new("Frame")
-    line.Size = UDim2.new(0.9, 0, 0, 2)
-    line.Position = UDim2.new(0.05, 0, 0, 55)
-    line.BackgroundColor3 = COLORS.BORDER
-    line.Parent = mainPanel
-    
-    -- Button Example
-    ui:CreateButton({
-        Parent = mainPanel,
-        Text = "Click Me! 🌊",
-        Size = UDim2.new(0, 200, 0, 40),
-        Position = UDim2.new(0.5, -100, 0, 70),
-        OnClick = function()
-            ui:Notify({
-                Title = "Button Clicked",
-                Message = "You clicked the ocean button!",
-                Type = "success"
-            })
-        end
-    })
-    
-    -- Toggle Example
-    local toggle = ui:CreateToggle({
-        Parent = mainPanel,
-        Text = "Dark Mode",
-        Size = UDim2.new(0, 250, 0, 40),
-        Position = UDim2.new(0.5, -125, 0, 130),
-        Default = true,
-        OnChanged = function(value)
-            local newColor = value and COLORS.BACKGROUND or COLORS.SURFACE
-            TweenService:Create(mainPanel, TWEEN_INFO.SMOOTH, {
-                BackgroundColor3 = newColor
-            }):Play()
-        end
-    })
-    
-    -- Slider Example
-    local slider = ui:CreateSlider({
-        Parent = mainPanel,
-        Text = "Volume",
-        Size = UDim2.new(0, 280, 0, 70),
-        Position = UDim2.new(0.5, -140, 0, 190),
-        Min = 0,
-        Max = 100,
-        Default = 50,
-        Decimal = false,
-        OnChanged = function(value)
-            ui:Notify({
-                Title = "Volume Changed",
-                Message = "Volume set to " .. value .. "%",
-                Duration = 1
-            })
-        end
-    })
-    
-    -- Dropdown Example
-    local dropdown = ui:CreateDropdown({
-        Parent = mainPanel,
-        Items = {"Ocean Blue", "Coral Reef", "Deep Sea", "Shallows"},
-        Default = "Ocean Blue",
-        Size = UDim2.new(0, 200, 0, 40),
-        Position = UDim2.new(0.5, -100, 0, 280),
-        OnSelected = function(item)
-            ui:Notify({
-                Title = "Theme Changed",
-                Message = "Selected: " .. item,
-                Type = "success",
-                Duration = 1.5
-            })
-        end
-    })
-    
-    -- Multi Dropdown Example
-    local multidd = ui:CreateMultiDropdown({
-        Parent = mainPanel,
-        Text = "Select Features",
-        Items = {"Wave Effects", "Bubbles", "Fish", "Corals", "Treasure"},
-        Size = UDim2.new(0, 220, 0, 45),
-        Position = UDim2.new(0.5, -110, 0, 340),
-        OnSelected = function(selected)
-            print("Selected:", table.concat(selected, ", "))
-        end
-    })
-    
-    -- Input Box Example
-    local inputBox = ui:CreateInputBox({
-        Parent = mainPanel,
-        Label = "Username",
-        Placeholder = "Enter your name...",
-        Size = UDim2.new(0, 250, 0, 60),
-        Position = UDim2.new(0.5, -125, 0, 405),
-        OnSubmit = function(text)
-            ui:Notify({
-                Title = "Welcome",
-                Message = "Hello, " .. text .. "!",
-                Type = "success"
-            })
-        end
-    })
-    
-    -- Paragraph Example
-    local paragraph = ui:CreateParagraph({
-        Parent = mainPanel,
-        Title = "About Ocean UI",
-        Text = "This is a modern UI library with an ocean theme. It features smooth animations, beautiful colors, and a variety of components to create amazing interfaces for your Roblox games.",
-        Size = UDim2.new(0, 340, 0, 100),
-        Position = UDim2.new(0.5, -170, 0, 485),
-        TextSize = 12
-    })
-    
-    -- Show welcome notification
-    ui:Notify({
-        Title = "Welcome to Ocean UI",
-        Message = "Your modern UI library for Roblox! 🌊",
-        Type = "success",
-        Duration = 3
-    })
+    New("TextLabel", {
+        BackgroundTransparency = 1,
+        Size     = UDim2.new(1, -70, 0, 20),
+        Position = UDim2.new(0, 62, 0, 12),
+        Font     = Enum.Font.GothamBold,
+        Text     = title,
+        TextColor3  = Theme.TextPrimary,
+        TextSize    = 13,
+        TextXAlignment = Enum.TextXAlignment.Left,
+    }, card)
+
+    -- Message
+    New("TextLabel", {
+        BackgroundTransparency = 1,
+        Size     = UDim2.new(1, -72, 0, 28),
+        Position = UDim2.new(0, 62, 0, 34),
+        Font     = Enum.Font.Gotham,
+        Text     = text,
+        TextColor3  = Theme.TextSecondary,
+        TextSize    = 11,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextWrapped = true,
+    }, card)
+
+    -- Progress bar
+    local progBG = New("Frame", {
+        BackgroundColor3 = Theme.SliderTrack,
+        Size     = UDim2.new(1, -8, 0, 2),
+        Position = UDim2.new(0, 4, 1, -4),
+        AnchorPoint = Vector2.new(0, 1),
+    }, card)
+    New("UICorner", { CornerRadius = UDim.new(1, 0) }, progBG)
+
+    local progFill = New("Frame", {
+        BackgroundColor3 = accentColor,
+        Size = UDim2.new(1, 0, 1, 0),
+    }, progBG)
+    New("UICorner", { CornerRadius = UDim.new(1, 0) }, progFill)
+
+    -- Slide in
+    card.Position = UDim2.new(1, 20, 0, 0)
+    Tween(card, { Position = UDim2.new(0, 0, 0, 0) }, 0.35)
+
+    -- Progress shrink
+    Tween(progFill, { Size = UDim2.new(0, 0, 1, 0) }, duration,
+          Enum.EasingStyle.Linear, Enum.EasingDirection.Out)
+
+    task.delay(duration, function()
+        Tween(card, { Position = UDim2.new(1, 20, 0, 0), BackgroundTransparency = 1 }, 0.3)
+        task.delay(0.3, function() card:Destroy() end)
+    end)
+
+    return card
 end
 
--- Run the example
-CreateExampleUI()
+OceanUI.Notify = Notify
 
+---------------------------------------------------------------------------
+-- MAIN WINDOW
+---------------------------------------------------------------------------
+function OceanUI:CreateWindow(config)
+    config = config or {}
+    local title  = config.Title  or "OceanUI"
+    local width  = config.Width  or 560
+    local height = config.Height or 400
+
+    local ScreenGui = New("ScreenGui", {
+        Name = "OceanUI_" .. title,
+        IgnoreGuiInset = true,
+        ResetOnSpawn   = false,
+        ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+    }, PlayerGui)
+
+    -- Shadow
+    local Shadow = New("Frame", {
+        BackgroundColor3 = Theme.Shadow,
+        BackgroundTransparency = 0.4,
+        Size    = UDim2.new(0, width + 20, 0, height + 20),
+        Position = UDim2.new(0.5, -(width / 2) - 10, 0.5, -(height / 2) - 10),
+        AnchorPoint = Vector2.new(0, 0),
+        ZIndex = 0,
+    }, ScreenGui)
+    New("UICorner", { CornerRadius = UDim.new(0, 18) }, Shadow)
+
+    -- Main frame
+    local Main = New("Frame", {
+        Name = "Main",
+        BackgroundColor3 = Theme.BG,
+        Size    = UDim2.new(0, width, 0, height),
+        Position = UDim2.new(0.5, -width / 2, 0.5, -height / 2),
+        ClipsDescendants = true,
+        ZIndex = 1,
+    }, ScreenGui)
+    New("UICorner", { CornerRadius = UDim.new(0, 14) }, Main)
+    New("UIStroke", {
+        Color = Theme.Accent,
+        Thickness = 1.4,
+        Transparency = 0.5,
+    }, Main)
+
+    -- Ocean BG gradient
+    New("UIGradient", {
+        Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0,   Color3.fromRGB(8, 22, 40)),
+            ColorSequenceKeypoint.new(0.5, Color3.fromRGB(10, 30, 55)),
+            ColorSequenceKeypoint.new(1,   Color3.fromRGB(6, 18, 35)),
+        }),
+        Rotation = 135,
+    }, Main)
+
+    -- Animated wave lines (decorative)
+    for i = 1, 3 do
+        local wave = New("Frame", {
+            BackgroundColor3 = Theme.Accent,
+            BackgroundTransparency = 0.88 + i * 0.03,
+            Size    = UDim2.new(1.5, 0, 0, 1),
+            Position = UDim2.new(-0.5, 0, 0.3 + i * 0.18, 0),
+            ZIndex = 1,
+        }, Main)
+        local function animWave()
+            wave.Position = UDim2.new(-0.5, 0, 0.3 + i * 0.18, 0)
+            Tween(wave, { Position = UDim2.new(0.1, 0, 0.32 + i * 0.18, 0) },
+                  3 + i, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+            task.delay(3 + i, function()
+                Tween(wave, { Position = UDim2.new(-0.5, 0, 0.3 + i * 0.18, 0) },
+                      3 + i, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+                task.delay(3 + i, animWave)
+            end)
+        end
+        task.delay(i * 0.8, animWave)
+    end
+
+    -- ── Title Bar ──────────────────────────────────────────────────────
+    local TitleBar = New("Frame", {
+        BackgroundColor3 = Theme.BGSecondary,
+        Size     = UDim2.new(1, 0, 0, 44),
+        Position = UDim2.new(0, 0, 0, 0),
+        ZIndex   = 3,
+    }, Main)
+    New("UICorner", { CornerRadius = UDim.new(0, 14) }, TitleBar)
+    -- fix bottom corners
+    New("Frame", {
+        BackgroundColor3 = Theme.BGSecondary,
+        Size    = UDim2.new(1, 0, 0, 14),
+        Position = UDim2.new(0, 0, 1, -14),
+        ZIndex = 3,
+    }, TitleBar)
+
+    -- Wave icon
+    New("TextLabel", {
+        BackgroundTransparency = 1,
+        Size     = UDim2.new(0, 28, 0, 28),
+        Position = UDim2.new(0, 12, 0.5, 0),
+        AnchorPoint = Vector2.new(0, 0.5),
+        Font     = Enum.Font.GothamBold,
+        Text     = "〜",
+        TextColor3  = Theme.AccentGlow,
+        TextSize    = 20,
+        ZIndex   = 4,
+    }, TitleBar)
+
+    New("TextLabel", {
+        BackgroundTransparency = 1,
+        Size     = UDim2.new(1, -120, 1, 0),
+        Position = UDim2.new(0, 46, 0, 0),
+        Font     = Enum.Font.GothamBold,
+        Text     = title,
+        TextColor3  = Theme.TextPrimary,
+        TextSize    = 15,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex   = 4,
+    }, TitleBar)
+
+    -- Close button
+    local CloseBtn = New("TextButton", {
+        BackgroundColor3 = Color3.fromRGB(255, 75, 75),
+        Size    = UDim2.new(0, 16, 0, 16),
+        Position = UDim2.new(1, -28, 0.5, 0),
+        AnchorPoint = Vector2.new(0, 0.5),
+        Text    = "",
+        ZIndex  = 4,
+    }, TitleBar)
+    New("UICorner", { CornerRadius = UDim.new(1, 0) }, CloseBtn)
+    CloseBtn.MouseButton1Click:Connect(function()
+        Tween(Main, { Size = UDim2.new(0, width, 0, 0), Position = UDim2.new(0.5, -width/2, 0.5, 0) }, 0.3)
+        task.delay(0.31, function() ScreenGui:Destroy() end)
+    end)
+
+    -- Minimize
+    local MinBtn = New("TextButton", {
+        BackgroundColor3 = Theme.Warning,
+        Size    = UDim2.new(0, 16, 0, 16),
+        Position = UDim2.new(1, -50, 0.5, 0),
+        AnchorPoint = Vector2.new(0, 0.5),
+        Text    = "",
+        ZIndex  = 4,
+    }, TitleBar)
+    New("UICorner", { CornerRadius = UDim.new(1, 0) }, MinBtn)
+    local minimised = false
+    MinBtn.MouseButton1Click:Connect(function()
+        minimised = not minimised
+        Tween(Main, {
+            Size = minimised
+                and UDim2.new(0, width, 0, 44)
+                or  UDim2.new(0, width, 0, height)
+        }, 0.3)
+    end)
+
+    MakeDraggable(Main, TitleBar)
+
+    -- ── Tab Bar ────────────────────────────────────────────────────────
+    local TabBar = New("Frame", {
+        BackgroundColor3 = Theme.BGSecondary,
+        Size     = UDim2.new(0, 130, 1, -44),
+        Position = UDim2.new(0, 0, 0, 44),
+        ClipsDescendants = true,
+        ZIndex   = 2,
+    }, Main)
+
+    New("UIListLayout", {
+        SortOrder   = Enum.SortOrder.LayoutOrder,
+        Padding     = UDim.new(0, 4),
+    }, TabBar)
+    New("UIPadding", {
+        PaddingTop   = UDim.new(0, 10),
+        PaddingLeft  = UDim.new(0, 8),
+        PaddingRight = UDim.new(0, 8),
+    }, TabBar)
+
+    -- Separator line
+    New("Frame", {
+        BackgroundColor3 = Theme.Separator,
+        Size    = UDim2.new(0, 1, 1, -44),
+        Position = UDim2.new(0, 130, 0, 44),
+        ZIndex  = 2,
+    }, Main)
+
+    -- Content area
+    local ContentArea = New("Frame", {
+        BackgroundTransparency = 1,
+        Size     = UDim2.new(1, -138, 1, -52),
+        Position = UDim2.new(0, 138, 0, 52),
+        ClipsDescendants = true,
+        ZIndex   = 2,
+    }, Main)
+
+    -- Entry animation
+    Main.Size = UDim2.new(0, width, 0, 0)
+    Main.Position = UDim2.new(0.5, -width/2, 0.5, 0)
+    Tween(Main, {
+        Size     = UDim2.new(0, width, 0, height),
+        Position = UDim2.new(0.5, -width/2, 0.5, -height/2),
+    }, 0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+
+    -----------------------------------------------------------------
+    -- Window object
+    -----------------------------------------------------------------
+    local Window = {}
+    local tabs   = {}
+    local activeTab = nil
+
+    local function switchTab(tabObj)
+        if activeTab == tabObj then return end
+        if activeTab then
+            Tween(activeTab.Btn, { BackgroundColor3 = Theme.BGTertiary }, 0.2)
+            activeTab.Btn.TitleLabel.TextColor3 = Theme.TextSecondary
+            activeTab.Panel.Visible = false
+        end
+        activeTab = tabObj
+        Tween(tabObj.Btn, { BackgroundColor3 = Theme.AccentDark }, 0.2)
+        tabObj.Btn.TitleLabel.TextColor3 = Theme.TextPrimary
+        tabObj.Panel.Visible = true
+    end
+
+    function Window:AddTab(name)
+        local btn = New("TextButton", {
+            BackgroundColor3 = Theme.BGTertiary,
+            Size    = UDim2.new(1, 0, 0, 34),
+            Text    = "",
+            AutoButtonColor = false,
+            ZIndex  = 3,
+        }, TabBar)
+        New("UICorner", { CornerRadius = UDim.new(0, 8) }, btn)
+
+        local label = New("TextLabel", {
+            Name = "TitleLabel",
+            BackgroundTransparency = 1,
+            Size = UDim2.new(1, 0, 1, 0),
+            Font = Enum.Font.GothamSemibold,
+            Text = name,
+            TextColor3  = Theme.TextSecondary,
+            TextSize    = 12,
+            ZIndex      = 4,
+        }, btn)
+
+        -- Tab content panel
+        local panel = New("ScrollingFrame", {
+            BackgroundTransparency = 1,
+            Size     = UDim2.new(1, 0, 1, 0),
+            Position = UDim2.new(0, 0, 0, 0),
+            ScrollBarThickness = 3,
+            ScrollBarImageColor3 = Theme.Accent,
+            CanvasSize = UDim2.new(0, 0, 0, 0),
+            AutomaticCanvasSize = Enum.AutomaticSize.Y,
+            Visible  = false,
+            ZIndex   = 2,
+        }, ContentArea)
+        New("UIListLayout", {
+            SortOrder = Enum.SortOrder.LayoutOrder,
+            Padding   = UDim.new(0, 6),
+        }, panel)
+        New("UIPadding", {
+            PaddingTop    = UDim.new(0, 8),
+            PaddingLeft   = UDim.new(0, 8),
+            PaddingRight  = UDim.new(0, 8),
+            PaddingBottom = UDim.new(0, 8),
+        }, panel)
+
+        local tabObj = { Btn = btn, Panel = panel }
+
+        btn.MouseButton1Click:Connect(function()
+            switchTab(tabObj)
+        end)
+        btn.MouseEnter:Connect(function()
+            if activeTab ~= tabObj then
+                Tween(btn, { BackgroundColor3 = Theme.BGHover }, 0.15)
+            end
+        end)
+        btn.MouseLeave:Connect(function()
+            if activeTab ~= tabObj then
+                Tween(btn, { BackgroundColor3 = Theme.BGTertiary }, 0.15)
+            end
+        end)
+
+        table.insert(tabs, tabObj)
+        if #tabs == 1 then switchTab(tabObj) end
+
+        ------------------------------------------------------------------
+        -- Tab API
+        ------------------------------------------------------------------
+        local Tab = {}
+
+        -- Shared card builder
+        local function MakeCard(h)
+            local card = New("Frame", {
+                BackgroundColor3 = Theme.BGTertiary,
+                Size    = UDim2.new(1, 0, 0, h or 40),
+                ZIndex  = 3,
+            }, panel)
+            New("UICorner", { CornerRadius = UDim.new(0, 8) }, card)
+            return card
+        end
+
+        -- ── BUTTON ────────────────────────────────────────────────
+        function Tab:AddButton(opts)
+            opts = opts or {}
+            local card = MakeCard(38)
+
+            local btn = New("TextButton", {
+                BackgroundColor3 = Theme.AccentDark,
+                Size    = UDim2.new(1, -16, 0, 26),
+                Position = UDim2.new(0, 8, 0.5, 0),
+                AnchorPoint = Vector2.new(0, 0.5),
+                Text    = opts.Text or "Button",
+                Font    = Enum.Font.GothamBold,
+                TextColor3  = Theme.TextPrimary,
+                TextSize    = 12,
+                AutoButtonColor = false,
+                ClipsDescendants = true,
+                ZIndex  = 4,
+            }, card)
+            New("UICorner", { CornerRadius = UDim.new(0, 6) }, btn)
+            New("UIGradient", {
+                Color = ColorSequence.new({
+                    ColorSequenceKeypoint.new(0, Theme.Accent),
+                    ColorSequenceKeypoint.new(1, Theme.AccentDark),
+                }),
+                Rotation = 90,
+            }, btn)
+            AddRipple(btn)
+            AddShimmer(btn)
+
+            btn.MouseEnter:Connect(function()
+                Tween(btn, { BackgroundColor3 = Theme.AccentGlow }, 0.15)
+            end)
+            btn.MouseLeave:Connect(function()
+                Tween(btn, { BackgroundColor3 = Theme.AccentDark }, 0.15)
+            end)
+            btn.MouseButton1Click:Connect(function()
+                if opts.Callback then opts.Callback() end
+            end)
+
+            return btn
+        end
+
+        -- ── TOGGLE ────────────────────────────────────────────────
+        function Tab:AddToggle(opts)
+            opts = opts or {}
+            local state = opts.Default or false
+            local card  = MakeCard(40)
+
+            New("TextLabel", {
+                BackgroundTransparency = 1,
+                Size     = UDim2.new(1, -70, 1, 0),
+                Position = UDim2.new(0, 12, 0, 0),
+                Font     = Enum.Font.GothamSemibold,
+                Text     = opts.Text or "Toggle",
+                TextColor3  = Theme.TextPrimary,
+                TextSize    = 12,
+                TextXAlignment = Enum.TextXAlignment.Left,
+                ZIndex   = 4,
+            }, card)
+
+            local track = New("Frame", {
+                BackgroundColor3 = state and Theme.ToggleOn or Theme.ToggleOff,
+                Size    = UDim2.new(0, 42, 0, 22),
+                Position = UDim2.new(1, -54, 0.5, 0),
+                AnchorPoint = Vector2.new(0, 0.5),
+                ZIndex  = 4,
+            }, card)
+            New("UICorner", { CornerRadius = UDim.new(1, 0) }, track)
+
+            local thumb = New("Frame", {
+                BackgroundColor3 = Theme.SliderThumb,
+                Size    = UDim2.new(0, 16, 0, 16),
+                Position = state
+                    and UDim2.new(1, -19, 0.5, 0)
+                    or  UDim2.new(0, 3,   0.5, 0),
+                AnchorPoint = Vector2.new(0, 0.5),
+                ZIndex  = 5,
+            }, track)
+            New("UICorner", { CornerRadius = UDim.new(1, 0) }, thumb)
+
+            local clickRegion = New("TextButton", {
+                BackgroundTransparency = 1,
+                Size = UDim2.new(1, 0, 1, 0),
+                Text = "",
+                ZIndex = 6,
+            }, card)
+
+            clickRegion.MouseButton1Click:Connect(function()
+                state = not state
+                Tween(track, { BackgroundColor3 = state and Theme.ToggleOn or Theme.ToggleOff }, 0.2)
+                Tween(thumb, {
+                    Position = state
+                        and UDim2.new(1, -19, 0.5, 0)
+                        or  UDim2.new(0, 3,   0.5, 0)
+                }, 0.2, Enum.EasingStyle.Back)
+                if opts.Callback then opts.Callback(state) end
+            end)
+
+            local api = {}
+            function api:Set(val)
+                state = val
+                Tween(track, { BackgroundColor3 = state and Theme.ToggleOn or Theme.ToggleOff }, 0.2)
+                Tween(thumb, {
+                    Position = state
+                        and UDim2.new(1, -19, 0.5, 0)
+                        or  UDim2.new(0, 3,   0.5, 0)
+                }, 0.2, Enum.EasingStyle.Back)
+            end
+            function api:Get() return state end
+            return api
+        end
+
+        -- ── SLIDER ────────────────────────────────────────────────
+        function Tab:AddSlider(opts)
+            opts = opts or {}
+            local min  = opts.Min     or 0
+            local max  = opts.Max     or 100
+            local val  = opts.Default or min
+            local card = MakeCard(54)
+
+            local header = New("TextLabel", {
+                BackgroundTransparency = 1,
+                Size     = UDim2.new(1, -12, 0, 18),
+                Position = UDim2.new(0, 12, 0, 6),
+                Font     = Enum.Font.GothamSemibold,
+                Text     = opts.Text or "Slider",
+                TextColor3  = Theme.TextPrimary,
+                TextSize    = 12,
+                TextXAlignment = Enum.TextXAlignment.Left,
+                ZIndex   = 4,
+            }, card)
+
+            local valLabel = New("TextLabel", {
+                BackgroundTransparency = 1,
+                Size     = UDim2.new(0, 50, 0, 18),
+                Position = UDim2.new(1, -62, 0, 6),
+                Font     = Enum.Font.GothamBold,
+                Text     = tostring(val),
+                TextColor3  = Theme.AccentGlow,
+                TextSize    = 12,
+                TextXAlignment = Enum.TextXAlignment.Right,
+                ZIndex   = 4,
+            }, card)
+
+            local track = New("Frame", {
+                BackgroundColor3 = Theme.SliderTrack,
+                Size    = UDim2.new(1, -24, 0, 6),
+                Position = UDim2.new(0, 12, 0, 36),
+                ZIndex  = 4,
+            }, card)
+            New("UICorner", { CornerRadius = UDim.new(1, 0) }, track)
+
+            local pct = (val - min) / (max - min)
+            local fill = New("Frame", {
+                BackgroundColor3 = Theme.SliderFill,
+                Size    = UDim2.new(pct, 0, 1, 0),
+                ZIndex  = 5,
+            }, track)
+            New("UICorner", { CornerRadius = UDim.new(1, 0) }, fill)
+            New("UIGradient", {
+                Color = ColorSequence.new({
+                    ColorSequenceKeypoint.new(0, Theme.AccentDark),
+                    ColorSequenceKeypoint.new(1, Theme.AccentGlow),
+                }),
+            }, fill)
+
+            local thumb = New("Frame", {
+                BackgroundColor3 = Theme.SliderThumb,
+                Size    = UDim2.new(0, 14, 0, 14),
+                Position = UDim2.new(pct, -7, 0.5, 0),
+                AnchorPoint = Vector2.new(0, 0.5),
+                ZIndex  = 6,
+            }, track)
+            New("UICorner", { CornerRadius = UDim.new(1, 0) }, thumb)
+            New("UIStroke", { Color = Theme.Accent, Thickness = 1.5, Transparency = 0.3 }, thumb)
+
+            local dragging = false
+            local function update(input)
+                local relX = math.clamp(
+                    (input.Position.X - track.AbsolutePosition.X) / track.AbsoluteSize.X,
+                    0, 1
+                )
+                val = math.floor(min + relX * (max - min))
+                valLabel.Text = tostring(val)
+                Tween(fill,  { Size     = UDim2.new(relX, 0, 1, 0) },       0.05)
+                Tween(thumb, { Position = UDim2.new(relX, -7, 0.5, 0) }, 0.05)
+                if opts.Callback then opts.Callback(val) end
+            end
+
+            track.InputBegan:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                    dragging = true
+                    update(input)
+                end
+            end)
+            UserInputService.InputChanged:Connect(function(input)
+                if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+                    update(input)
+                end
+            end)
+            UserInputService.InputEnded:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                    dragging = false
+                end
+            end)
+
+            local api = {}
+            function api:Set(v)
+                val = math.clamp(v, min, max)
+                local r = (val - min) / (max - min)
+                valLabel.Text = tostring(val)
+                Tween(fill,  { Size     = UDim2.new(r, 0, 1, 0) },       0.2)
+                Tween(thumb, { Position = UDim2.new(r, -7, 0.5, 0) }, 0.2)
+            end
+            function api:Get() return val end
+            return api
+        end
+
+        -- ── DROPDOWN ──────────────────────────────────────────────
+        function Tab:AddDropdown(opts)
+            opts = opts or {}
+            local options  = opts.Options  or {}
+            local selected = opts.Default  or nil
+            local open     = false
+            local card     = MakeCard(38)
+
+            New("TextLabel", {
+                BackgroundTransparency = 1,
+                Size     = UDim2.new(0.5, 0, 1, 0),
+                Position = UDim2.new(0, 12, 0, 0),
+                Font     = Enum.Font.GothamSemibold,
+                Text     = opts.Text or "Dropdown",
+                TextColor3  = Theme.TextPrimary,
+                TextSize    = 12,
+                TextXAlignment = Enum.TextXAlignment.Left,
+                ZIndex   = 4,
+            }, card)
+
+            local selBtn = New("TextButton", {
+                BackgroundColor3 = Theme.BGSecondary,
+                Size    = UDim2.new(0.48, 0, 0, 26),
+                Position = UDim2.new(0.52, -8, 0.5, 0),
+                AnchorPoint = Vector2.new(0, 0.5),
+                Text    = selected or "Select...",
+                Font    = Enum.Font.Gotham,
+                TextColor3  = selected and Theme.TextPrimary or Theme.TextMuted,
+                TextSize    = 11,
+                AutoButtonColor = false,
+                ClipsDescendants = true,
+                ZIndex  = 4,
+            }, card)
+            New("UICorner", { CornerRadius = UDim.new(0, 6) }, selBtn)
+            New("UIStroke", { Color = Theme.Separator, Thickness = 1 }, selBtn)
+
+            -- Arrow
+            New("TextLabel", {
+                BackgroundTransparency = 1,
+                Size     = UDim2.new(0, 20, 1, 0),
+                Position = UDim2.new(1, -22, 0, 0),
+                Text     = "▾",
+                Font     = Enum.Font.GothamBold,
+                TextColor3  = Theme.AccentGlow,
+                TextSize    = 12,
+                ZIndex   = 5,
+            }, selBtn)
+
+            -- Dropdown list (rendered in panel, above card)
+            local list = New("Frame", {
+                BackgroundColor3 = Theme.BGSecondary,
+                Size    = UDim2.new(0.48, 0, 0, #options * 28 + 6),
+                Position = UDim2.new(0.52, -8, 1, 2),
+                ZIndex  = 10,
+                Visible = false,
+                ClipsDescendants = true,
+            }, card)
+            New("UICorner", { CornerRadius = UDim.new(0, 8) }, list)
+            New("UIStroke", { Color = Theme.Accent, Thickness = 1, Transparency = 0.5 }, list)
+            New("UIListLayout", { SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 2) }, list)
+            New("UIPadding", { PaddingTop = UDim.new(0, 3), PaddingBottom = UDim.new(0, 3), PaddingLeft = UDim.new(0, 3), PaddingRight = UDim.new(0, 3) }, list)
+
+            for _, opt in ipairs(options) do
+                local item = New("TextButton", {
+                    BackgroundColor3 = Theme.BGTertiary,
+                    Size    = UDim2.new(1, 0, 0, 26),
+                    Text    = opt,
+                    Font    = Enum.Font.Gotham,
+                    TextColor3  = Theme.TextPrimary,
+                    TextSize    = 11,
+                    AutoButtonColor = false,
+                    ZIndex  = 11,
+                }, list)
+                New("UICorner", { CornerRadius = UDim.new(0, 5) }, item)
+                item.MouseEnter:Connect(function()
+                    Tween(item, { BackgroundColor3 = Theme.BGHover }, 0.1)
+                end)
+                item.MouseLeave:Connect(function()
+                    Tween(item, { BackgroundColor3 = Theme.BGTertiary }, 0.1)
+                end)
+                item.MouseButton1Click:Connect(function()
+                    selected = opt
+                    selBtn.Text = opt
+                    selBtn.TextColor3 = Theme.TextPrimary
+                    open = false
+                    list.Visible = false
+                    if opts.Callback then opts.Callback(opt) end
+                end)
+            end
+
+            selBtn.MouseButton1Click:Connect(function()
+                open = not open
+                list.Visible = open
+                card.ZIndex = open and 20 or 3
+            end)
+
+            local api = {}
+            function api:Set(v) selected = v; selBtn.Text = v end
+            function api:Get() return selected end
+            return api
+        end
+
+        -- ── MULTI-DROPDOWN ────────────────────────────────────────
+        function Tab:AddMultiDropdown(opts)
+            opts = opts or {}
+            local options   = opts.Options  or {}
+            local selected  = {}
+            local open      = false
+            local card      = MakeCard(38)
+
+            New("TextLabel", {
+                BackgroundTransparency = 1,
+                Size     = UDim2.new(0.5, 0, 1, 0),
+                Position = UDim2.new(0, 12, 0, 0),
+                Font     = Enum.Font.GothamSemibold,
+                Text     = opts.Text or "MultiDropdown",
+                TextColor3  = Theme.TextPrimary,
+                TextSize    = 12,
+                TextXAlignment = Enum.TextXAlignment.Left,
+                ZIndex   = 4,
+            }, card)
+
+            local selBtn = New("TextButton", {
+                BackgroundColor3 = Theme.BGSecondary,
+                Size    = UDim2.new(0.48, 0, 0, 26),
+                Position = UDim2.new(0.52, -8, 0.5, 0),
+                AnchorPoint = Vector2.new(0, 0.5),
+                Text    = "Select...",
+                Font    = Enum.Font.Gotham,
+                TextColor3  = Theme.TextMuted,
+                TextSize    = 10,
+                AutoButtonColor = false,
+                ClipsDescendants = true,
+                ZIndex  = 4,
+            }, card)
+            New("UICorner", { CornerRadius = UDim.new(0, 6) }, selBtn)
+            New("UIStroke", { Color = Theme.Separator, Thickness = 1 }, selBtn)
+
+            New("TextLabel", {
+                BackgroundTransparency = 1,
+                Size     = UDim2.new(0, 20, 1, 0),
+                Position = UDim2.new(1, -22, 0, 0),
+                Text     = "▾",
+                Font     = Enum.Font.GothamBold,
+                TextColor3  = Theme.AccentGlow,
+                TextSize    = 12,
+                ZIndex   = 5,
+            }, selBtn)
+
+            local list = New("Frame", {
+                BackgroundColor3 = Theme.BGSecondary,
+                Size    = UDim2.new(0.48, 0, 0, #options * 28 + 6),
+                Position = UDim2.new(0.52, -8, 1, 2),
+                ZIndex  = 10,
+                Visible = false,
+                ClipsDescendants = true,
+            }, card)
+            New("UICorner", { CornerRadius = UDim.new(0, 8) }, list)
+            New("UIStroke", { Color = Theme.Accent, Thickness = 1, Transparency = 0.5 }, list)
+            New("UIListLayout", { SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 2) }, list)
+            New("UIPadding", { PaddingTop = UDim.new(0, 3), PaddingBottom = UDim.new(0, 3), PaddingLeft = UDim.new(0, 3), PaddingRight = UDim.new(0, 3) }, list)
+
+            local checkboxes = {}
+            local function refreshLabel()
+                local t = {}
+                for _, v in ipairs(options) do
+                    if selected[v] then table.insert(t, v) end
+                end
+                if #t == 0 then
+                    selBtn.Text = "Select..."
+                    selBtn.TextColor3 = Theme.TextMuted
+                else
+                    selBtn.Text = table.concat(t, ", ")
+                    selBtn.TextColor3 = Theme.TextPrimary
+                end
+            end
+
+            for _, opt in ipairs(options) do
+                local row = New("TextButton", {
+                    BackgroundColor3 = Theme.BGTertiary,
+                    Size    = UDim2.new(1, 0, 0, 26),
+                    Text    = "",
+                    AutoButtonColor = false,
+                    ZIndex  = 11,
+                }, list)
+                New("UICorner", { CornerRadius = UDim.new(0, 5) }, row)
+
+                local chk = New("Frame", {
+                    BackgroundColor3 = selected[opt] and Theme.Accent or Theme.SliderTrack,
+                    Size    = UDim2.new(0, 14, 0, 14),
+                    Position = UDim2.new(0, 8, 0.5, 0),
+                    AnchorPoint = Vector2.new(0, 0.5),
+                    ZIndex  = 12,
+                }, row)
+                New("UICorner", { CornerRadius = UDim.new(0, 3) }, chk)
+
+                New("TextLabel", {
+                    BackgroundTransparency = 1,
+                    Size     = UDim2.new(1, -30, 1, 0),
+                    Position = UDim2.new(0, 28, 0, 0),
+                    Text     = opt,
+                    Font     = Enum.Font.Gotham,
+                    TextColor3  = Theme.TextPrimary,
+                    TextSize    = 11,
+                    TextXAlignment = Enum.TextXAlignment.Left,
+                    ZIndex   = 12,
+                }, row)
+
+                checkboxes[opt] = chk
+                row.MouseEnter:Connect(function()
+                    Tween(row, { BackgroundColor3 = Theme.BGHover }, 0.1)
+                end)
+                row.MouseLeave:Connect(function()
+                    Tween(row, { BackgroundColor3 = Theme.BGTertiary }, 0.1)
+                end)
+                row.MouseButton1Click:Connect(function()
+                    selected[opt] = not selected[opt]
+                    Tween(chk, {
+                        BackgroundColor3 = selected[opt] and Theme.Accent or Theme.SliderTrack
+                    }, 0.15)
+                    refreshLabel()
+                    if opts.Callback then opts.Callback(selected) end
+                end)
+            end
+
+            selBtn.MouseButton1Click:Connect(function()
+                open = not open
+                list.Visible = open
+                card.ZIndex = open and 20 or 3
+            end)
+
+            local api = {}
+            function api:Get()
+                local t = {}
+                for k, v in pairs(selected) do if v then table.insert(t, k) end end
+                return t
+            end
+            return api
+        end
+
+        -- ── INPUT BOX ─────────────────────────────────────────────
+        function Tab:AddInputBox(opts)
+            opts = opts or {}
+            local card = MakeCard(54)
+
+            New("TextLabel", {
+                BackgroundTransparency = 1,
+                Size     = UDim2.new(1, -12, 0, 18),
+                Position = UDim2.new(0, 12, 0, 6),
+                Font     = Enum.Font.GothamSemibold,
+                Text     = opts.Text or "Input",
+                TextColor3  = Theme.TextPrimary,
+                TextSize    = 12,
+                TextXAlignment = Enum.TextXAlignment.Left,
+                ZIndex   = 4,
+            }, card)
+
+            local box = New("TextBox", {
+                BackgroundColor3 = Theme.BGSecondary,
+                Size    = UDim2.new(1, -24, 0, 24),
+                Position = UDim2.new(0, 12, 0, 26),
+                Font    = Enum.Font.Gotham,
+                Text    = opts.Default or "",
+                PlaceholderText = opts.Placeholder or "Enter text...",
+                PlaceholderColor3 = Theme.TextMuted,
+                TextColor3  = Theme.TextPrimary,
+                TextSize    = 11,
+                ClearTextOnFocus = opts.ClearOnFocus ~= false,
+                ZIndex  = 4,
+                ClipsDescendants = true,
+            }, card)
+            New("UICorner", { CornerRadius = UDim.new(0, 6) }, box)
+            New("UIStroke", { Color = Theme.Separator, Thickness = 1 }, box)
+            New("UIPadding", { PaddingLeft = UDim.new(0, 8) }, box)
+
+            box.Focused:Connect(function()
+                Tween(box, { BackgroundColor3 = Theme.BGTertiary }, 0.15)
+                New("UIStroke", { Color = Theme.Accent, Thickness = 1.5, Transparency = 0.2 }, box)
+            end)
+            box.FocusLost:Connect(function(enter)
+                Tween(box, { BackgroundColor3 = Theme.BGSecondary }, 0.15)
+                if opts.Callback then opts.Callback(box.Text, enter) end
+            end)
+
+            local api = {}
+            function api:Get() return box.Text end
+            function api:Set(v) box.Text = v end
+            return api
+        end
+
+        -- ── PARAGRAPH ─────────────────────────────────────────────
+        function Tab:AddParagraph(opts)
+            opts = opts or {}
+            local text = opts.Text or ""
+            local lines = math.max(1, math.ceil(#text / 55))
+            local h = 28 + lines * 14
+            local card = MakeCard(h)
+
+            if opts.Title then
+                New("TextLabel", {
+                    BackgroundTransparency = 1,
+                    Size     = UDim2.new(1, -16, 0, 16),
+                    Position = UDim2.new(0, 12, 0, 6),
+                    Font     = Enum.Font.GothamBold,
+                    Text     = opts.Title,
+                    TextColor3  = Theme.AccentGlow,
+                    TextSize    = 11,
+                    TextXAlignment = Enum.TextXAlignment.Left,
+                    ZIndex   = 4,
+                }, card)
+            end
+
+            local off = opts.Title and 22 or 8
+            New("TextLabel", {
+                BackgroundTransparency = 1,
+                Size     = UDim2.new(1, -16, 1, -(off + 6)),
+                Position = UDim2.new(0, 12, 0, off),
+                Font     = Enum.Font.Gotham,
+                Text     = text,
+                TextColor3  = Theme.TextSecondary,
+                TextSize    = 11,
+                TextXAlignment = Enum.TextXAlignment.Left,
+                TextWrapped = true,
+                ZIndex   = 4,
+            }, card)
+
+            -- decorative left border
+            New("Frame", {
+                BackgroundColor3 = Theme.Accent,
+                Size    = UDim2.new(0, 3, 0.7, 0),
+                Position = UDim2.new(0, 0, 0.15, 0),
+                ZIndex  = 4,
+            }, card)
+
+            local api = {}
+            function api:SetText(t) end -- extend if needed
+            return api
+        end
+
+        return Tab
+    end
+
+    -- ── Window-level Notify shortcut ──────────────────────────────────
+    function Window:Notify(opts)
+        Notify(opts)
+    end
+
+    return Window
+end
+
+---------------------------------------------------------------------------
+-- RETURN LIBRARY
+---------------------------------------------------------------------------
 return OceanUI
