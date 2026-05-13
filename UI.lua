@@ -1,5 +1,3 @@
--- UILibrary.lua
-
 local UILibrary = {}
 
 local TweenService = game:GetService("TweenService")
